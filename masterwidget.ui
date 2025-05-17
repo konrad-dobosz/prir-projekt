@@ -157,6 +157,13 @@
           </property>
          </widget>
         </item>
+		<item>
+         <widget class="QPushButton" name="sortButton">
+          <property name="text">
+           <string>Sort Descending</string>
+          </property>
+         </widget>
+        </item>
         <item>
          <widget class="QListWidget" name="primesListWidget"/>
         </item>

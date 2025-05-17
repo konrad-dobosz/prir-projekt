@@ -6,7 +6,10 @@
 MasterWidget::MasterWidget(QWidget *parent) :
     QWidget(parent),
     ui(new Ui::MasterWidget),
-    m_serverRunning(false)
+    m_serverRunning(false),
+    m_rangeStart(1),
+    m_rangeEnd(1000000),
+    m_sortAscending(true)
 {
     ui->setupUi(this);
 
@@ -204,6 +207,17 @@ void MasterWidget::updateClientList()
     }
 }
 
+void MasterWidget::updatePrimesList()
+{
+    // Czyścimy listę widgetów
+    ui->primesListWidget->clear();
+
+    // Dodajemy wszystkie liczby pierwsze do listy widgetów
+    for (const quint64 &prime : m_primes) {
+        ui->primesListWidget->addItem(QString::number(prime));
+    }
+}
+
 void MasterWidget::updatePrimesList(quint64 prime)
 {
     ui->primesListWidget->addItem(QString::number(prime));
@@ -241,4 +255,32 @@ double MasterWidget::primeCountApproximation(quint64 x)
 {
     if (x < 2) return 0;
     return x / std::log(x);
+}
+
+void MasterWidget::on_sortButton_clicked()
+{
+    m_sortAscending = !m_sortAscending; // Przełączamy kierunek sortowania
+    sortPrimesList();
+
+    // Aktualizujemy tekst przycisku
+    if (m_sortAscending) {
+        ui->sortButton->setText("Sort Descending");
+        log("Sorted prime numbers in ascending order");
+    } else {
+        ui->sortButton->setText("Sort Ascending");
+        log("Sorted prime numbers in descending order");
+    }
+}
+
+void MasterWidget::sortPrimesList()
+{
+    // Sortujemy listę liczb pierwszych
+    if (m_sortAscending) {
+        std::sort(m_primes.begin(), m_primes.end());
+    } else {
+        std::sort(m_primes.begin(), m_primes.end(), std::greater<quint64>());
+    }
+
+    // Aktualizujemy widok
+    updatePrimesList();
 }

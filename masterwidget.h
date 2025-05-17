@@ -25,6 +25,7 @@ private slots:
     void on_stopServerButton_clicked();
     void on_distributeButton_clicked();
     void on_verifyButton_clicked();
+    void on_sortButton_clicked();
 
     void handleNewConnection();
     void handleClientDisconnected();
@@ -43,11 +44,14 @@ private:
     bool m_serverRunning;
     quint64 m_rangeStart;
     quint64 m_rangeEnd;
+    bool m_sortAscending;
 
     void updateClientList();
+    void updatePrimesList();
     void updatePrimesList(quint64 prime);
     void log(const QString &message);
     void updatePrimeCount();
+    void sortPrimesList();
     double primeCountApproximation(quint64 x);
 };
 
