@@ -24,6 +24,7 @@ private slots:
     void on_startServerButton_clicked();
     void on_stopServerButton_clicked();
     void on_distributeButton_clicked();
+    void on_verifyButton_clicked();
 
     void handleNewConnection();
     void handleClientDisconnected();
@@ -40,10 +41,14 @@ private:
     // Data
     QList<quint64> m_primes;
     bool m_serverRunning;
+    quint64 m_rangeStart;
+    quint64 m_rangeEnd;
 
     void updateClientList();
     void updatePrimesList(quint64 prime);
     void log(const QString &message);
+    void updatePrimeCount();
+    double primeCountApproximation(quint64 x);
 };
 
 #endif // MASTERWIDGET_H

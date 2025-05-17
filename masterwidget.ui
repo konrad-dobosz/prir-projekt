@@ -117,6 +117,16 @@
         </property>
        </widget>
       </item>
+      <item>
+       <widget class="QPushButton" name="verifyButton">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
+        <property name="text">
+         <string>Verify Results</string>
+        </property>
+       </widget>
+      </item>
      </layout>
     </widget>
    </item>
@@ -140,6 +150,13 @@
         <string>Found Prime Numbers</string>
        </property>
        <layout class="QVBoxLayout" name="verticalLayout_3">
+	    <item>
+         <widget class="QLabel" name="primeCountLabel">
+          <property name="text">
+           <string>Found: 0</string>
+          </property>
+         </widget>
+        </item>
         <item>
          <widget class="QListWidget" name="primesListWidget"/>
         </item>

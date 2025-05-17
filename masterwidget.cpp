@@ -77,29 +77,29 @@ void MasterWidget::on_distributeButton_clicked()
     }
 
     bool ok;
-    quint64 rangeStart = ui->rangeStartEdit->text().toULongLong(&ok);
+    m_rangeStart = ui->rangeStartEdit->text().toULongLong(&ok);
     if (!ok) {
         QMessageBox::warning(this, "Warning", "Invalid range start value");
         return;
     }
 
-    quint64 rangeEnd = ui->rangeEndEdit->text().toULongLong(&ok);
+    m_rangeEnd = ui->rangeEndEdit->text().toULongLong(&ok);
     if (!ok) {
         QMessageBox::warning(this, "Warning", "Invalid range end value");
         return;
     }
 
-    if (rangeStart >= rangeEnd) {
+    if (m_rangeStart >= m_rangeEnd) {
         QMessageBox::warning(this, "Warning", "Range start must be less than range end");
         return;
     }
 
     // Obliczanie zakresu dla każdego slave'a
-    quint64 totalRange = rangeEnd - rangeStart + 1;
+    quint64 totalRange = m_rangeEnd - m_rangeStart + 1;
     quint64 rangePerClient = totalRange / m_clients.size();
 
     log(QString("Distributing work range [%1-%2] to %3 slaves")
-            .arg(rangeStart).arg(rangeEnd).arg(m_clients.size()));
+            .arg(m_rangeStart).arg(m_rangeEnd).arg(m_clients.size()));
 
     // Czyszczenie listy znalezionych liczb pierwszych
     m_primes.clear();
@@ -108,8 +108,8 @@ void MasterWidget::on_distributeButton_clicked()
     for (int i = 0; i < m_clients.size(); i++) {
         QTcpSocket *client = m_clients[i];
 
-        quint64 start = rangeStart + i * rangePerClient;
-        quint64 end = (i == m_clients.size() - 1) ? rangeEnd : start + rangePerClient - 1;
+        quint64 start = m_rangeStart + i * rangePerClient;
+        quint64 end = (i == m_clients.size() - 1) ? m_rangeEnd : start + rangePerClient - 1;
 
         // Tworzenie pakietu danych
         QByteArray data;
@@ -176,6 +176,7 @@ void MasterWidget::processResults()
 
             m_primes.append(prime);
             updatePrimesList(prime);
+            updatePrimeCount();
 
         } else if (opCode == 2) { // Zakończenie obliczeń
             if (clientSocket->bytesAvailable() < sizeof(quint32))
@@ -188,6 +189,11 @@ void MasterWidget::processResults()
                     .arg(m_clientAddresses[clientSocket]).arg(count));
         }
     }
+}
+
+void MasterWidget::updatePrimeCount()
+{
+    ui->primeCountLabel->setText(QString("Found: %1").arg(m_primes.count()));
 }
 
 void MasterWidget::updateClientList()
@@ -206,4 +212,33 @@ void MasterWidget::updatePrimesList(quint64 prime)
 void MasterWidget::log(const QString &message)
 {
     ui->logTextEdit->append(QTime::currentTime().toString("[HH:mm:ss] ") + message);
+}
+
+void MasterWidget::on_verifyButton_clicked()
+{
+    // Obliczamy teoretyczną liczbę liczb pierwszych w zakresie
+    double approximation = primeCountApproximation(m_rangeEnd) - primeCountApproximation(m_rangeStart - 1);
+
+    // Obliczamy różnicę procentową
+    double difference = std::abs(m_primes.count() - approximation) / approximation * 100.0;
+
+    QString message = QString("Znalezione liczby pierwsze: %1\n"
+                              "Aproksymacja matematyczna: %2\n"
+                              "Różnica: %3%")
+                          .arg(m_primes.count())
+                          .arg(approximation, 0, 'f', 2)
+                          .arg(difference, 0, 'f', 2);
+
+    QMessageBox::information(this, "Verification Results", message);
+
+    log(QString("Verification: Found %1 primes, approximation: %2, difference: %3%")
+            .arg(m_primes.count())
+            .arg(approximation, 0, 'f', 2)
+            .arg(difference, 0, 'f', 2));
+}
+
+double MasterWidget::primeCountApproximation(quint64 x)
+{
+    if (x < 2) return 0;
+    return x / std::log(x);
 }
