@@ -23,14 +23,12 @@ void PrimeRunnable::run()
 
         if (isPrime(i)) {
             m_primes.append(i);
-            // Informowanie o znalezieniu liczby pierwszej
             QMetaObject::invokeMethod(m_receiver, "primeFound",
                                       Qt::QueuedConnection,
                                       Q_ARG(quint64, i));
         }
     }
 
-    // Informowanie o zakończeniu obliczeń
     QMetaObject::invokeMethod(m_receiver, "calculationFinished",
                               Qt::QueuedConnection,
                               Q_ARG(QList<quint64>, m_primes));
@@ -44,14 +42,13 @@ bool PrimeRunnable::isPrime(quint64 n)
 
     quint64 i = 5;
     while (i * i <= n) {
-        if (*m_stopped) return false; // Sprawdzenie, czy operacja nie została przerwana
+        if (*m_stopped) return false;
 
         if (n % i == 0 || n % (i + 2) == 0)
             return false;
 
         i += 6;
 
-        // Raportowanie postępu co jakiś czas
         if (i % 1000 == 0) {
             double progress = static_cast<double>(i * i) / n * 100.0;
             QMetaObject::invokeMethod(m_receiver, "updateProgress",

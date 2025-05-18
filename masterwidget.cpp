@@ -3,10 +3,17 @@
 #include <QMessageBox>
 #include <QDataStream>
 
+/**
+ * Konstruktor klasy MasterWidget - inicjalizuje interfejs użytkownika i konfiguruje serwer TCP.
+ * Tworzy instancję serwera i łączy sygnał nowego połączenia z odpowiednią funkcją obsługi.
+ * Ustawia domyślne wartości parametrów, takich jak zakres poszukiwania liczb pierwszych.
+ */
 MasterWidget::MasterWidget(QWidget *parent) :
     QWidget(parent),
     ui(new Ui::MasterWidget),
     m_serverRunning(false),
+
+
     m_rangeStart(1),
     m_rangeEnd(1000000),
     m_sortAscending(true)
@@ -18,9 +25,14 @@ MasterWidget::MasterWidget(QWidget *parent) :
     connect(m_server, &QTcpServer::newConnection, this, &MasterWidget::handleNewConnection);
 }
 
+/**
+ * Destruktor klasy MasterWidget - zwalnia zasoby i zamyka serwer.
+ * Jeśli serwer jest uruchomiony, zatrzymuje go przed zwolnieniem zasobów.
+ */
 MasterWidget::~MasterWidget()
 {
     // Zatrzymanie serwera i zamknięcie połączeń
+
     if (m_serverRunning) {
         on_stopServerButton_clicked();
     }
@@ -28,6 +40,11 @@ MasterWidget::~MasterWidget()
     delete ui;
 }
 
+/**
+ * Obsługuje kliknięcie przycisku uruchamiającego serwer.
+ * Uruchamia serwer TCP na określonym porcie i aktualizuje interfejs użytkownika.
+ * W przypadku błędu wyświetla komunikat z informacją o problemie.
+ */
 void MasterWidget::on_startServerButton_clicked()
 {
     int port = ui->portSpinBox->value();
@@ -38,6 +55,8 @@ void MasterWidget::on_startServerButton_clicked()
     }
 
     m_serverRunning = true;
+
+
     ui->startServerButton->setEnabled(false);
     ui->stopServerButton->setEnabled(true);
     ui->distributeButton->setEnabled(true);
@@ -47,9 +66,13 @@ void MasterWidget::on_startServerButton_clicked()
     ui->statusLabel->setText(QString("Server running on port %1").arg(port));
 }
 
+/**
+ * Obsługuje kliknięcie przycisku zatrzymującego serwer.
+ * Zamyka wszystkie połączenia z klientami, zatrzymuje serwer TCP i aktualizuje interfejs użytkownika.
+ * Czyści listy klientów i aktualizuje informacje o stanie serwera.
+ */
 void MasterWidget::on_stopServerButton_clicked()
 {
-    // Zamknięcie wszystkich połączeń klienckich
     for (QTcpSocket *socket : m_clients) {
         socket->disconnectFromHost();
     }
@@ -58,11 +81,9 @@ void MasterWidget::on_stopServerButton_clicked()
     m_clientAddresses.clear();
     ui->clientsListWidget->clear();
 
-    // Zatrzymanie serwera
     m_server->close();
     m_serverRunning = false;
 
-    // Aktualizacja UI
     ui->startServerButton->setEnabled(true);
     ui->stopServerButton->setEnabled(false);
     ui->distributeButton->setEnabled(false);
@@ -72,8 +93,16 @@ void MasterWidget::on_stopServerButton_clicked()
     ui->statusLabel->setText("Server not running");
 }
 
+/**
+ * Obsługuje kliknięcie przycisku dystrybucji zadań.
+ * Pobiera zakres poszukiwania liczb pierwszych, dzieli go na części i przydziela każdemu podłączonemu klientowi.
+ * Waliduje wprowadzone wartości zakresu i sprawdza dostępność klientów.
+ * Dla każdego klienta oblicza indywidualny podzakres i wysyła zadanie przez TCP.
+ */
 void MasterWidget::on_distributeButton_clicked()
 {
+
+
     if (m_clients.isEmpty()) {
         QMessageBox::warning(this, "Warning", "No connected slaves to distribute work");
         return;
@@ -97,12 +126,12 @@ void MasterWidget::on_distributeButton_clicked()
         return;
     }
 
+
     // Obliczanie zakresu dla każdego slave'a
     quint64 totalRange = m_rangeEnd - m_rangeStart + 1;
     quint64 rangePerClient = totalRange / m_clients.size();
 
-    log(QString("Distributing work range [%1-%2] to %3 slaves")
-            .arg(m_rangeStart).arg(m_rangeEnd).arg(m_clients.size()));
+    log(QString("Distributing work range [%1-%2] to %3 slaves").arg(m_rangeStart).arg(m_rangeEnd).arg(m_clients.size()));
 
     // Czyszczenie listy znalezionych liczb pierwszych
     m_primes.clear();
@@ -122,11 +151,15 @@ void MasterWidget::on_distributeButton_clicked()
         // Wysyłanie zadania do slave'a
         client->write(data);
 
-        log(QString("Sent range [%1-%2] to slave %3")
-                .arg(start).arg(end).arg(m_clientAddresses[client]));
+        log(QString("Sent range [%1-%2] to slave %3").arg(start).arg(end).arg(m_clientAddresses[client]));
     }
 }
 
+/**
+ * Obsługuje nowe połączenie klienta z serwerem.
+ * Pobiera kolejne oczekujące połączenie, łączy odpowiednie sygnały klienta z funkcjami obsługi,
+ * dodaje klienta do listy i aktualizuje interfejs użytkownika.
+ */
 void MasterWidget::handleNewConnection()
 {
     QTcpSocket *clientSocket = m_server->nextPendingConnection();
@@ -144,6 +177,11 @@ void MasterWidget::handleNewConnection()
     log(QString("New client connected: %1").arg(clientAddress));
 }
 
+/**
+ * Obsługuje rozłączenie klienta.
+ * Identyfikuje rozłączony socket, usuwa go z listy klientów i zwalnia zasoby.
+ * Aktualizuje interfejs użytkownika, usuwając klienta z wyświetlanej listy.
+ */
 void MasterWidget::handleClientDisconnected()
 {
     QTcpSocket *clientSocket = qobject_cast<QTcpSocket*>(sender());
@@ -159,6 +197,12 @@ void MasterWidget::handleClientDisconnected()
     updateClientList();
 }
 
+/**
+ * Przetwarza wyniki otrzymane od klientów (slave'ów).
+ * Odczytuje dane z połączenia TCP i interpretuje je zgodnie z protokołem:
+ * - kod operacji 1: znaleziona liczba pierwsza - dodaje ją do listy i aktualizuje interfejs
+ * - kod operacji 2: zakończenie obliczeń - rejestruje informację o zakończeniu pracy klienta
+ */
 void MasterWidget::processResults()
 {
     QTcpSocket *clientSocket = qobject_cast<QTcpSocket*>(sender());
@@ -194,46 +238,74 @@ void MasterWidget::processResults()
     }
 }
 
+/**
+ * Aktualizuje etykietę z liczbą znalezionych liczb pierwszych.
+ * Wyświetla aktualną liczbę znalezionych liczb pierwszych na interfejsie.
+ */
 void MasterWidget::updatePrimeCount()
 {
     ui->primeCountLabel->setText(QString("Found: %1").arg(m_primes.count()));
 }
 
+/**
+ * Aktualizuje listę podłączonych klientów na interfejsie użytkownika.
+ * Czyści obecną listę i wypełnia ją aktualnymi adresami klientów.
+ */
 void MasterWidget::updateClientList()
 {
     ui->clientsListWidget->clear();
     for (const QString &client : m_clientAddresses.values()) {
+
         ui->clientsListWidget->addItem(client);
+
     }
 }
 
+/**
+ * Aktualizuje pełną listę znalezionych liczb pierwszych na interfejsie użytkownika.
+ * Czyści obecną listę i wypełnia ją wszystkimi znalezionymi liczbami pierwszymi.
+ */
 void MasterWidget::updatePrimesList()
 {
-    // Czyścimy listę widgetów
     ui->primesListWidget->clear();
 
-    // Dodajemy wszystkie liczby pierwsze do listy widgetów
     for (const quint64 &prime : m_primes) {
+
         ui->primesListWidget->addItem(QString::number(prime));
+
     }
 }
 
+/**
+ * Dodaje pojedynczą liczbę pierwszą do listy na interfejsie użytkownika.
+ * @param prime Liczba pierwsza do dodania
+ */
 void MasterWidget::updatePrimesList(quint64 prime)
 {
     ui->primesListWidget->addItem(QString::number(prime));
 }
 
+/**
+ * Dodaje wiadomość do dziennika logów.
+ * Dołącza znacznik czasu do wiadomości i wyświetla ją w polu tekstowym logów.
+ * @param message Treść wiadomości do zalogowania
+ */
 void MasterWidget::log(const QString &message)
 {
+
     ui->logTextEdit->append(QTime::currentTime().toString("[HH:mm:ss] ") + message);
+
 }
 
+/**
+ * Obsługuje kliknięcie przycisku weryfikacji wyników.
+ * Oblicza przybliżoną liczbę liczb pierwszych w zadanym zakresie na podstawie twierdzenia
+ * o liczbach pierwszych, porównuje z faktycznie znalezioną liczbą i wyświetla różnicę.
+ */
 void MasterWidget::on_verifyButton_clicked()
 {
-    // Obliczamy teoretyczną liczbę liczb pierwszych w zakresie
     double approximation = primeCountApproximation(m_rangeEnd) - primeCountApproximation(m_rangeStart - 1);
 
-    // Obliczamy różnicę procentową
     double difference = std::abs(m_primes.count() - approximation) / approximation * 100.0;
 
     QString message = QString("Znalezione liczby pierwsze: %1\n"
@@ -251,18 +323,28 @@ void MasterWidget::on_verifyButton_clicked()
             .arg(difference, 0, 'f', 2));
 }
 
+/**
+ * Oblicza matematyczną aproksymację liczby liczb pierwszych mniejszych lub równych x.
+ * Wykorzystuje przybliżenie π(x) ≈ x/ln(x), które wynika z twierdzenia o liczbach pierwszych.
+ * @param x Górna granica zakresu
+ * @return Przybliżona liczba liczb pierwszych w zakresie [1,x]
+ */
 double MasterWidget::primeCountApproximation(quint64 x)
 {
+
     if (x < 2) return 0;
     return x / std::log(x);
 }
 
+/**
+ * Obsługuje kliknięcie przycisku sortowania liczb pierwszych.
+ * Przełącza tryb sortowania (rosnąco/malejąco), sortuje listę i aktualizuje interfejs.
+ */
 void MasterWidget::on_sortButton_clicked()
 {
-    m_sortAscending = !m_sortAscending; // Przełączamy kierunek sortowania
+    m_sortAscending = !m_sortAscending;
     sortPrimesList();
 
-    // Aktualizujemy tekst przycisku
     if (m_sortAscending) {
         ui->sortButton->setText("Sort Descending");
         log("Sorted prime numbers in ascending order");
@@ -270,17 +352,22 @@ void MasterWidget::on_sortButton_clicked()
         ui->sortButton->setText("Sort Ascending");
         log("Sorted prime numbers in descending order");
     }
+
+
 }
 
+/**
+ * Sortuje listę znalezionych liczb pierwszych zgodnie z aktualnym trybem sortowania.
+ * Wykorzystuje algorytm std::sort z odpowiednim komparatorem, a następnie aktualizuje
+ * interfejs użytkownika, aby odzwierciedlić posortowaną listę.
+ */
 void MasterWidget::sortPrimesList()
 {
-    // Sortujemy listę liczb pierwszych
     if (m_sortAscending) {
         std::sort(m_primes.begin(), m_primes.end());
     } else {
         std::sort(m_primes.begin(), m_primes.end(), std::greater<quint64>());
     }
 
-    // Aktualizujemy widok
     updatePrimesList();
 }
